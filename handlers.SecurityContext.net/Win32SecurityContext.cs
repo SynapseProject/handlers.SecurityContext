@@ -1,15 +1,15 @@
 ﻿using System;
 using System.Security;
+using System.Security.Principal;
 
 using Synapse.Core;
 using Zephyr.SecurityContext;
 using Zephyr.SecurityContext.Windows;
 
 
-#if(NET452 || NET46 || NET461 || NET462 || NET47 || NET471 || NET472)
-public class Win32ImpersonationProvider : SecurityContextRuntimeBase
+public class Win32IdentityProvider : SecurityContextRuntimeBase
 {
-    Win32Impersonate _identity = null;
+    Win32Identity _w32;
 
     public override ExecuteResult Logon(SecurityContextStartInfo startInfo)
     {
@@ -18,10 +18,9 @@ public class Win32ImpersonationProvider : SecurityContextRuntimeBase
             Win32LogonInfo logonInfo = DeserializeOrNew<Win32LogonInfo>( startInfo.Parameters );
             logonInfo.MakeSecure();
 
-            _identity = new Win32Impersonate();
-            _identity.Impersonate( logonInfo.SecureUserName, logonInfo.SecureDomain, logonInfo.SecurePassword );
+            _w32 = new Win32Identity( logonInfo.SecureUserName, logonInfo.SecureDomain, logonInfo.SecurePassword );
 
-            string message = $"SecurityContext: {logonInfo.SecureUserName.ToUnsecureString()}, IsImpersonating: {_identity.IsImpersonating}";
+            string message = $"SecurityContext: {logonInfo.SecureUserName.ToUnsecureString()}, HasIdentity: {_w32.HasIdentity}";
             OnLogMessage( "Logon", message );
             return new ExecuteResult() { Status = StatusType.Success, Message = message };
         }
@@ -32,9 +31,22 @@ public class Win32ImpersonationProvider : SecurityContextRuntimeBase
         }
     }
 
+    public override ExecuteResult ExecuteProxy(Func<HandlerStartInfo, ExecuteResult> func, HandlerStartInfo handlerStartInfo)
+    {
+        ExecuteResult result = null;
+        WindowsIdentity.RunImpersonated( _w32.Identity.AccessToken, () =>
+        {
+            result = func( handlerStartInfo );
+            result.SecurityContext = _w32.Identity.Name;
+        } );
+        return result;
+    }
+
+    public override bool UseExecuteProxy { get { return true; } set { } }
+
     public override void Logoff()
     {
-        _identity?.Undo();
+        _w32?.Logout();
     }
 
     public override object GetConfigInstance()
@@ -50,29 +62,5 @@ public class Win32ImpersonationProvider : SecurityContextRuntimeBase
             Password = "password",
             Domain = "domain"
         };
-    }
-}
-#endif
-
-public class Win32LogonInfo
-{
-    public string UserName { get; set; }
-    public string Password { get; set; }
-    public string Domain { get; set; }
-
-    internal SecureString SecureUserName;
-    internal SecureString SecurePassword;
-    internal SecureString SecureDomain;
-
-    public void MakeSecure()
-    {
-        SecureUserName = UserName.ToSecureString();
-        UserName = null;
-
-        SecurePassword = Password.ToSecureString();
-        Password = null;
-
-        SecureDomain = Domain.ToSecureString();
-        Domain = null;
     }
 }
