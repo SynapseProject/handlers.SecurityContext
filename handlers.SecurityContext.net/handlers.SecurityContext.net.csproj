@@ -16,7 +16,7 @@
   <ItemGroup>
     <PackageReference Include="Synapse.Core.Signed" Version="1.0.18345" />
     <PackageReference Include="YamlDotNet.Signed" Version="5.2.1" />
-    <PackageReference Include="Zephyr.SecurityContext" Version="1.0.18345" />
+    <PackageReference Include="Zephyr.SecurityContext" Version="1.0.18350" />
   </ItemGroup>
 
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
