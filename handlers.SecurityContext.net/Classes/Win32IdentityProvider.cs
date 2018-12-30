@@ -33,13 +33,12 @@ public class Win32IdentityProvider : SecurityContextRuntimeBase
 
     public override ExecuteResult ExecuteProxy(Func<HandlerStartInfo, ExecuteResult> func, HandlerStartInfo handlerStartInfo)
     {
-        ExecuteResult result = null;
-        WindowsIdentity.RunImpersonated( _w32.Identity.AccessToken, () =>
+        return WindowsIdentity.RunImpersonated( _w32.Identity.AccessToken, () =>
         {
-            result = func( handlerStartInfo );
+            ExecuteResult result = func( handlerStartInfo );
             result.SecurityContext = _w32.Identity.Name;
+            return result;
         } );
-        return result;
     }
 
     public override bool UseExecuteProxy { get { return true; } set { } }
